@@ -18,7 +18,7 @@ docker run \
     -v "$HOME/neo4j/logs:/logs" \
     -v "$HOME/neo4j/import:/import" \
     -v "$HOME/neo4j/plugins:/plugins" \
-    -e NEO4J_AUTH=neo4j/graph4fun \
+    -e NEO4J_AUTH=neo4j/******** \
     neo4j:latest
 
-echo "my-neo4j started; browser at http://localhost:7474 (user: neo4j, password: graph4fun)"
+echo "my-neo4j started; browser at http://localhost:7474 (user: neo4j, password: ********)"
