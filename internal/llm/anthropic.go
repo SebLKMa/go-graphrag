@@ -22,6 +22,9 @@ type Client struct {
 	APIKey     string
 	Model      string
 	HTTPClient *http.Client
+	// Dialect names the graph database whose Cypher dialect generated
+	// queries should target, e.g. "Neo4j" or "Memgraph". Empty means Neo4j.
+	Dialect string
 }
 
 // New returns a Client for the given API key and model id.
@@ -58,7 +61,11 @@ type response struct {
 // CypherForQuestion asks the model to translate question into a single
 // read-only Cypher query, given a description of the graph schema.
 func (c *Client) CypherForQuestion(ctx context.Context, schema, question string) (string, error) {
-	system := fmt.Sprintf(`You translate natural-language questions into Cypher queries for a Neo4j graph database.
+	dialect := c.Dialect
+	if dialect == "" {
+		dialect = "Neo4j"
+	}
+	system := fmt.Sprintf(`You translate natural-language questions into Cypher queries for a %s graph database. Use only Cypher constructs that %s supports.
 
 Schema:
 %s
@@ -66,7 +73,7 @@ Schema:
 Rules:
 - Respond with exactly one Cypher query and nothing else: no markdown fences, no explanation.
 - The query must be read-only (MATCH/RETURN); never modify the graph (no CREATE, MERGE, SET, DELETE).
-- Limit results to 25 rows unless the question specifies otherwise.`, schema)
+- Limit results to 25 rows unless the question specifies otherwise.`, dialect, dialect, schema)
 
 	body, err := json.Marshal(request{
 		Model:     c.Model,

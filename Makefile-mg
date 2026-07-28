@@ -1,4 +1,4 @@
-BIN_DIR := bin/neo4j
+BIN_DIR := bin/mg
 
 .PHONY: all build ingest chat clean
 

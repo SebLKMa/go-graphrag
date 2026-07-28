@@ -1,12 +1,13 @@
 // Command chat is a REPL that lets you ask natural-language questions about
 // the equipment graph. Each question is sent to an LLM to produce a Cypher
-// query, which is then run against Neo4j; both the query and its results are
-// printed.
+// query, which is then run against the graph database (Neo4j or Memgraph);
+// both the query and its results are printed.
 package main
 
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -36,6 +37,9 @@ Relationships:
   (:Inspection)-[:VIA]->(:Sensor)`
 
 func main() {
+	dbName := flag.String("db", "", "graph database backend: neo4j or memgraph (default $GRAPH_DB, or neo4j)")
+	flag.Parse()
+
 	ctx := context.Background()
 
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
@@ -44,17 +48,19 @@ func main() {
 	}
 	model := config.EnvOr("ANTHROPIC_MODEL", "claude-sonnet-5")
 
-	uri := config.EnvOr("NEO4J_URI", "bolt://localhost:7687")
-	user := config.EnvOr("NEO4J_USER", "neo4j")
-	password := config.EnvOr("NEO4J_PASSWORD", "graph4fun")
-
-	db, err := graphdb.Connect(ctx, uri, user, password)
+	backend, err := config.GraphBackend(*dbName)
 	if err != nil {
-		log.Fatalf("connect to neo4j: %v", err)
+		log.Fatal(err)
+	}
+
+	db, err := graphdb.Connect(ctx, backend.URI, backend.User, backend.Password)
+	if err != nil {
+		log.Fatalf("connect to %s: %v", backend.Name, err)
 	}
 	defer db.Close(ctx)
 
 	client := llm.New(apiKey, model)
+	client.Dialect = backend.Dialect
 
 	fmt.Println("Ask questions about the equipment graph. Type 'exit' or 'quit' to leave.")
 	scanner := bufio.NewScanner(os.Stdin)

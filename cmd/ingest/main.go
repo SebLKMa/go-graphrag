@@ -1,5 +1,6 @@
 // Command ingest loads datapipe/equipments.csv and
-// datapipe/equipment_health_inspections.csv into Neo4j as a graph.
+// datapipe/equipment_health_inspections.csv into a graph database
+// (Neo4j or Memgraph) as a graph.
 package main
 
 import (
@@ -14,18 +15,33 @@ import (
 )
 
 func main() {
-	uri := flag.String("uri", config.EnvOr("NEO4J_URI", "bolt://localhost:7687"), "Neo4j bolt URI")
-	user := flag.String("user", config.EnvOr("NEO4J_USER", "neo4j"), "Neo4j username")
-	password := flag.String("password", config.EnvOr("NEO4J_PASSWORD", "graph4fun"), "Neo4j password")
+	dbName := flag.String("db", "", "graph database backend: neo4j or memgraph (default $GRAPH_DB, or neo4j)")
+	uri := flag.String("uri", "", "bolt URI (default per backend)")
+	user := flag.String("user", "", "username (default per backend)")
+	password := flag.String("password", "", "password (default per backend)")
 	equipmentsPath := flag.String("equipments", "datapipe/equipments.csv", "path to equipments CSV")
 	inspectionsPath := flag.String("inspections", "datapipe/equipment_health_inspections.csv", "path to inspections CSV")
 	flag.Parse()
 
+	backend, err := config.GraphBackend(*dbName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if *uri != "" {
+		backend.URI = *uri
+	}
+	if *user != "" {
+		backend.User = *user
+	}
+	if *password != "" {
+		backend.Password = *password
+	}
+
 	ctx := context.Background()
 
-	db, err := graphdb.Connect(ctx, *uri, *user, *password)
+	db, err := graphdb.Connect(ctx, backend.URI, backend.User, backend.Password)
 	if err != nil {
-		log.Fatalf("connect to neo4j: %v", err)
+		log.Fatalf("connect to %s: %v", backend.Name, err)
 	}
 	defer db.Close(ctx)
 
