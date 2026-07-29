@@ -1,0 +1,16 @@
+BIN_DIR := bin/graphdb
+
+.PHONY: all build ingest chat clean
+
+all: build
+
+build: ingest chat
+
+ingest:
+	go build -o $(BIN_DIR)/ingest ./cmd/ingest
+
+chat:
+	go build -o $(BIN_DIR)/chat ./cmd/chat
+
+clean:
+	rm -rf $(BIN_DIR)

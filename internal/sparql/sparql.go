@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strings"
 )
@@ -63,20 +64,40 @@ func (c *Client) EnsureRepository(ctx context.Context) error {
 	}
 }
 
+// repositoryConfig is the minimal RDF4J-style Turtle config for a GraphDB
+// repository; everything beyond the id is left at its defaults.
+const repositoryConfig = `@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix rep: <http://www.openrdf.org/config/repository#>.
+@prefix sr: <http://www.openrdf.org/config/repository/sail#>.
+@prefix sail: <http://www.openrdf.org/config/sail#>.
+
+[] a rep:Repository ;
+   rep:repositoryID %q ;
+   rdfs:label "go-graphrag equipment graph" ;
+   rep:repositoryImpl [
+     rep:repositoryType "graphdb:SailRepository" ;
+     sr:sailImpl [
+       sail:sailType "graphdb:Sail"
+     ]
+   ] .
+`
+
 func (c *Client) createRepository(ctx context.Context) error {
-	body, err := json.Marshal(map[string]any{
-		"id":    c.Repository,
-		"type":  "graphdb",
-		"title": "go-graphrag equipment graph",
-	})
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	part, err := form.CreateFormFile("config", "repo-config.ttl")
 	if err != nil {
-		return fmt.Errorf("marshal repository config: %w", err)
+		return fmt.Errorf("build repository config: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/rest/repositories", bytes.NewReader(body))
+	fmt.Fprintf(part, repositoryConfig, c.Repository)
+	if err := form.Close(); err != nil {
+		return fmt.Errorf("build repository config: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/rest/repositories", &body)
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", form.FormDataContentType())
 	resp, err := c.do(req)
 	if err != nil {
 		return fmt.Errorf("create repository %q: %w", c.Repository, err)

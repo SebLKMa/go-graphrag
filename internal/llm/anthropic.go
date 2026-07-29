@@ -1,5 +1,5 @@
 // Package llm calls the Anthropic Messages API to translate a natural
-// language question about the graph into a single Cypher query.
+// language question about the graph into a single Cypher or SPARQL query.
 package llm
 
 import (
@@ -75,6 +75,29 @@ Rules:
 - The query must be read-only (MATCH/RETURN); never modify the graph (no CREATE, MERGE, SET, DELETE).
 - Limit results to 25 rows unless the question specifies otherwise.`, dialect, dialect, schema)
 
+	return c.complete(ctx, system, question, "cypher")
+}
+
+// SPARQLForQuestion asks the model to translate question into a single
+// read-only SPARQL query, given a description of the RDF schema.
+func (c *Client) SPARQLForQuestion(ctx context.Context, schema, question string) (string, error) {
+	system := fmt.Sprintf(`You translate natural-language questions into SPARQL 1.1 queries for an Ontotext GraphDB repository.
+
+Schema:
+%s
+
+Rules:
+- Respond with exactly one SPARQL query and nothing else: no markdown fences, no explanation.
+- Include the PREFIX declarations the query needs.
+- The query must be read-only (SELECT or ASK); never modify the store (no INSERT, DELETE, LOAD, CLEAR).
+- Limit results to 25 rows with LIMIT unless the question specifies otherwise.`, schema)
+
+	return c.complete(ctx, system, question, "sparql")
+}
+
+// complete sends one user message under the given system prompt and returns
+// the model's text, stripped of any ```<lang> markdown fences.
+func (c *Client) complete(ctx context.Context, system, question, lang string) (string, error) {
 	body, err := json.Marshal(request{
 		Model:     c.Model,
 		MaxTokens: 1024,
@@ -119,7 +142,7 @@ Rules:
 	}
 
 	query := strings.TrimSpace(parsed.Content[0].Text)
-	query = strings.TrimPrefix(query, "```cypher")
+	query = strings.TrimPrefix(query, "```"+lang)
 	query = strings.TrimPrefix(query, "```")
 	query = strings.TrimSuffix(query, "```")
 	return strings.TrimSpace(query), nil

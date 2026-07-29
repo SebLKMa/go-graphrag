@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Starts (or reuses) the local Neo4j container described in NEO4J.md.
+# Starts (or reuses) the local Ontotext GraphDB container described in GRAPHDB.md.
+# Pinned to 10.8.1: GraphDB 11+ refuses writes without a license file, while
+# the 10.x free mode runs unlicensed.
 set -euo pipefail
 
 if docker ps -a --format '{{.Names}}' | grep -qx graphdb; then
@@ -14,6 +16,6 @@ docker run -d --name graphdb \
   -p 7200:7200 \
   -v ~/graphdb-data/home:/opt/graphdb/home \
   -v ~/graphdb-data/import:/root/graphdb-import \
-  ontotext/graphdb:11.0.1
+  ontotext/graphdb:10.8.1
 
-echo "graphdb started; browser at http://localhost:7200"
+echo "graphdb started; workbench at http://localhost:7200"
